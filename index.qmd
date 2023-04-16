@@ -1,0 +1,28 @@
+---
+title: "hp2"
+author: "Frederick Kusumo"
+date: 2023-04-18
+format: 
+  html:
+    embed-resources: true
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+here::i_am("hp2-frederickkusumo/index.qmd")
+library(here)
+library(tidyverse)
+```
+
+```{r}
+national_anthems <- read.csv('national_anthems.csv')
+```
+
+# Introduction
+
+A national anthem is generally a way of highlighting the history, tradition, and culture of the country in the form of word and song. When you think about it, they would always be empowering as they are trying to honor and show how the country has come to its form to this date. However, it would be really interesting to find out a lot of things regarding the national anthems of different countries through applying the skills that have been learned in class particularly regarding strings, and sentimental analysis.
+
+The fields that are going to be used are the Country, Continent, and Anthem columns of the data frame. The Country column contains the country corresponding the the national anthem, the Continent column would be the location of which continent the country is situated in, and the Anthem column would contain the national anthems of each countries.
+

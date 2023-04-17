@@ -14,10 +14,7 @@ editor_options:
 here::i_am("hp2-frederickkusumo/index.qmd")
 library(here)
 library(tidyverse)
-```
-
-```{r}
-national_anthems <- read.csv('national_anthems.csv')
+library(tidytext)
 ```
 
 # Introduction
@@ -25,4 +22,139 @@ national_anthems <- read.csv('national_anthems.csv')
 A national anthem is generally a way of highlighting the history, tradition, and culture of the country in the form of word and song. When you think about it, they would always be empowering as they are trying to honor and show how the country has come to its form to this date. However, it would be really interesting to find out a lot of things regarding the national anthems of different countries through applying the skills that have been learned in class particularly regarding strings, and sentimental analysis.
 
 The fields that are going to be used are the Country, Continent, and Anthem columns of the data frame. The Country column contains the country corresponding the the national anthem, the Continent column would be the location of which continent the country is situated in, and the Anthem column would contain the national anthems of each countries.
+
+```{r}
+national_anthems <- read.csv('national_anthems.csv')
+national_anthems <- national_anthems %>% 
+  select(-c(Alpha.2, Alpha.3))
+```
+
+#1. Word Freq
+
+```{r}
+anthems_freq <- anthems_tidy %>% 
+  group_by(Continent) %>% 
+  count(word, sort=TRUE)
+
+anthems_freq <- anthems_freq %>% 
+  group_by(Continent) %>% 
+  slice(1:5)
+```
+
+```{r}
+anthems_freq %>% 
+  ggplot() +
+  aes(x = n,
+      y = reorder(word, n),
+      fill = n) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~Continent, scales = "free") +
+  labs(title = 'Top 5 Most Popular Words in National Anthems per Continent',
+       x = 'Word Frequency',
+       y = 'Words') 
+```
+
+
+#2. Pos and Neg words
+
+```{r}
+anthems_tidy <- national_anthems %>% 
+  unnest_tokens(word, Anthem) %>% 
+  anti_join(stop_words)
+
+anthems_sentiment <- anthems_tidy %>% 
+  inner_join(get_sentiments("bing")) %>% 
+  count(word, sentiment, sort = TRUE) %>% 
+  ungroup()
+```
+
+```{r}
+anthems_sentiment %>% 
+  group_by(sentiment) %>% 
+  slice_max(n, n = 10) %>% 
+  ungroup() %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(title = "Anthems Top 10 Positive and Negative Words",
+       x = "Word Count")
+```
+
+# 3. Most Popular Phrases
+ 
+```{r}
+anthems_phrases <- national_anthems %>% 
+  unnest_tokens(phrase, Anthem, token = "ngrams", n = 3)
+```
+ 
+```{r}
+anthems_phrases <- anthems_phrases %>% 
+  separate(col = phrase,
+           into = c("word1", "word2", "word3"),
+           sep = " ",
+           remove = FALSE) 
+```
+
+```{r}
+anthems_phrases_stop <- anthems_phrases %>% 
+  filter(!word1 %in% stop_words$word & !word2 %in% stop_words$word & !word3 %in% stop_words$word)
+
+anthems_phrases_top <- anthems_phrases_stop %>% 
+  group_by(Continent) %>% 
+  count(phrase, sort = TRUE)
+
+anthems_phrases_top <- anthems_phrases_top %>% 
+  group_by(Continent) %>%
+  arrange(desc(n)) %>%
+  filter(row_number() == 1)
+```
+
+```{r}
+anthems_phrases_top %>% 
+  ggplot(aes(x = reorder(phrase, n),
+             y = n, 
+             fill = Continent)) +
+  geom_col() +
+  labs(
+    x = NULL, 
+    y = 'frequency',
+    title = "Most frequent phrases in National Anthems per Continent") +
+  coord_flip() +
+  theme_minimal()
+```
+
+# 4. 
+
+```{r}
+sentiment_country <- anthems_tidy %>% 
+  inner_join(get_sentiments("bing")) %>% 
+  count(Country, index = row_number() %/% 50, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% 
+  mutate(sentiment = positive - negative) %>% 
+  arrange(desc(sentiment))
+```
+
+```{r}
+top_sentiment <- sentiment_country %>% 
+  slice(1:5)
+
+low_sentiment <- sentiment_country %>% 
+  slice(236:241)
+
+top_low_sentiment <- bind_rows(top_sentiment, low_sentiment)
+```
+
+```{r}
+top_low_sentiment %>% 
+ggplot(aes(x = reorder(Country, sentiment), 
+           y = sentiment,
+           fill = Country)) +
+  geom_col() + 
+  theme(axis.text.x = element_text(angle = 45, size = 5)) + 
+  labs(
+    x = 'Countries',
+    title = "Top 5 Lowest and Highest Sentiment"
+  )
+```
 

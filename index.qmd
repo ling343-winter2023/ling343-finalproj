@@ -1,0 +1,192 @@
+---
+title: "hp2"
+author: "Frederick Kusumo"
+date: 2023-04-18
+format: 
+  html:
+    embed-resources: true
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+# Introduction
+
+A national anthem is generally a way of highlighting the history, tradition, and culture of the country in the form of word and song. When you think about it, they would always be empowering as they are trying to honor and show how the country has come to its form to this date. However, it would be really interesting to find out a lot of things regarding the national anthems of different countries through applying the skills that have been learned in class particularly regarding strings, and sentimental analysis.
+
+The data set I am using for this project is from Kaggle which contains 5 different columns; Country, Alpha.2, Alpha.3, Continent, and Anthem. In this project, I am going to use just the Country, Continent, and Anthem. The Country column tells which country the anthem is from, the Continent column tells us regarding the region of where the country is located, and the Anthem column contains anthems from different countries translated to English.
+
+What I am specifically looking at for in this project would specifically be regarding the sentiment and words of the different Anthems. My first question would be specifically just focusing on positive and negative words generally. My second question would be regarding the top 5 most words used in anthems across different Continent. The third question would be regarding the most popular phrases across the different Continents, and last question would be regarding highest and lowest 5 sentimental score of the anthems per country. These questions would enable to answer my curiosity regarding anthems. Anthems should generally be positive and empowering. But, after doing this project, I will know if that is true or not. 
+
+A disclaimer would be that this analysis would be a little bit inaccurate due to national anthems as a whole would be in different languages respective to their country, since this data contains anthems were translated to English, some of the lines or phrases could have lost their original meaning.
+
+# Setup
+
+```{r}
+here::i_am("hp2-frederickkusumo/index.qmd")
+library(here)
+library(tidyverse)
+library(tidytext)
+```
+
+```{r}
+national_anthems <- read.csv('national_anthems.csv')
+national_anthems <- national_anthems %>% 
+  select(-c(Alpha.2, Alpha.3))
+```
+
+Here I am omitting unnecessary columns like Alpha.2 and Alpha.3 to make the data frame more neat and clear.
+
+# 1. What are the top 10 positive and negative words widely used in national anthems generally?
+
+Prior to analyzing the frequency of words, you would have to tokenize the Anthems into separate words. This would enable you to count word by word. Also, here I anti joined stop words so that I can get words that are actually meaningful not like "the" or "is".
+
+```{r}
+anthems_tidy <- national_anthems %>% 
+  unnest_tokens(word, Anthem) %>% 
+  anti_join(stop_words)
+```
+
+I chose the "bing" lexicon to conduct a sentimental analysis and it will return "negative" or "positive" based on the words each line, this is to make it easier to group the words based on sentiment when plotting. Then I counted the number of words and sorted by descending the easily access the top words.
+
+```{r}
+anthems_sentiment <- anthems_tidy %>% 
+  inner_join(get_sentiments("bing")) %>% 
+  count(word, sentiment, sort = TRUE) %>% 
+  ungroup()
+```
+
+```{r}
+anthems_sentiment %>% 
+  group_by(sentiment) %>% 
+  slice_max(n, n = 10) %>% 
+  ungroup() %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(title = "Anthems Top 10 Positive and Negative Words",
+       x = "Word Count")
+```
+
+It can be seen that there are more positive words count than negative in national anthems. However, since they are just words, I would say that it is a bit hard to judge them based from sentiment as we don't know if the sentence or phrase in the national anthems are actually negative or not. 
+
+# 2. What are the top words used in national anthems across the different Continents?
+
+Here I grouped by the data by continent to be able to count the frequency based from the continent of each location of the anthem. And then I sliced the top 5 of words frequency from each continent to get the top 5 most frequent words per continent.
+
+```{r}
+anthems_freq <- anthems_tidy %>% 
+  group_by(Continent) %>% 
+  count(word, sort=TRUE)
+
+anthems_freq <- anthems_freq %>% 
+  group_by(Continent) %>% 
+  slice(1:5)
+```
+
+```{r}
+anthems_freq %>% 
+  ggplot(aes(x = n, y = reorder(word, n), fill = n)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~Continent, scales = "free") +
+  labs(title = 'Top 5 Most Popular Words in National Anthems per Continent',
+       x = 'Word Frequency',
+       y = 'Words') 
+```
+
+It can be seen that anthems from different countries use a lot of common words like 'land'. It is definitely interesting to find out regarding this. However, I feel like due to the anthems being translated to English, it sort of messes the word up, so it can be seen from Europe, the word 'thy' doesn't really exist in reality. 
+
+# 3. What would be the most popular phrases used in the national anthems per Continent?
+
+To get phrases from the national anthems, I would have to tokenize the anthems using ngrams by 3. This would split the anthems per 3 words.
+
+```{r}
+anthems_phrases <- national_anthems %>% 
+  unnest_tokens(phrase, Anthem, token = "ngrams", n = 3)
+```
+
+It is always a must to filter the stop words from a sentimental or just word analysis in general. In this case, since we are analyzing phrases not words, it is a must to create three new columns consisting of the 3 words in each phrases to enable to filter the stop words from the phrases easily.
+
+```{r}
+anthems_phrases <- anthems_phrases %>% 
+  separate(col = phrase,
+           into = c("word1", "word2", "word3"),
+           sep = " ",
+           remove = FALSE) 
+
+anthems_phrases_stop <- anthems_phrases %>% 
+  filter(!word1 %in% stop_words$word & !word2 %in% stop_words$word & !word3 %in% stop_words$word)
+```
+
+Since I aim to get the most popular phrase of anthems by continent, I would have to first count the phrase occurrence, sorting it by descending, and filter the first one of each continent.
+
+```{r}
+anthems_phrases_top <- anthems_phrases_stop %>% 
+  group_by(Continent) %>% 
+  count(phrase, sort = TRUE)
+
+anthems_phrases_top <- anthems_phrases_top %>% 
+  group_by(Continent) %>%
+  arrange(desc(n)) %>%
+  filter(row_number() == 1)
+```
+
+```{r}
+anthems_phrases_top %>% 
+  ggplot(aes(x = reorder(phrase, n),
+             y = n, 
+             fill = Continent)) +
+  geom_col() +
+  labs(
+    x = NULL, 
+    y = 'frequency',
+    title = "Most frequent phrases in National Anthems per Continent") +
+  coord_flip() +
+  theme_minimal()
+```
+
+It can be seen from the graph that Asia and Europe has the highest occurrence of the phrases in one or more of their anthems. However, as mentioned before, since these anthems are translated from another language to English, it could either mean nothing or don't have meaning at all in English. An example would be from Europe itself, where the characters are unrecognizable by English.
+
+# 4. Which countries generally have the top and lowest sentiment score based on their national anthems?
+
+As some anthems are shorter and some are longer, I decided to just get the first 50 lines to do a sentimental analysis. I used the "bing" lexicon again to get the whether a word is negative a positive. After counting based on Country and sentiment, it would be easier to do pivot wider to separate positive and negative sentiment to two different columns. And to get the highest sentiment score and lowest sentiment score, I would have to calculate the score by subtracting negative from positive.
+
+```{r}
+sentiment_country <- anthems_tidy %>% 
+  inner_join(get_sentiments("bing")) %>% 
+  count(Country, index = row_number() %/% 50, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% 
+  mutate(sentiment = positive - negative) %>% 
+  arrange(desc(sentiment))
+```
+
+To get the highest 5 and lowest 5 sentiment scores of the countries, I decided to make two data frames where first I get the top 5 and the second one would be the lowest 5. It would then be easier to plot them by merging the data frames through rbind.
+
+```{r}
+top_sentiment <- sentiment_country %>% 
+  slice(1:5)
+
+low_sentiment <- sentiment_country %>% 
+  slice(237:241)
+
+top_low_sentiment <- bind_rows(top_sentiment, low_sentiment)
+```
+
+```{r}
+top_low_sentiment %>% 
+  ggplot(aes(x = reorder(Country, sentiment), 
+           y = sentiment,
+           fill = Country)) +
+  geom_col(show.legend=FALSE) + 
+  theme(axis.text.x = element_text(angle = 45, size = 5)) + 
+  labs(
+    x = 'Countries',
+    title = "Top 5 Lowest and Highest Sentiment Anthem Scores"
+  )
+```
+
+Based on the graph, Peru has the lowest anthem sentiment score, and Sri Lanka has the highest sentiment score. In spite of this data, I don't think this accurate as first of all these anthems were translated to English which means that it could have lost their original meaning. The second one would be that it is hard to tell regarding a sentimental analysis as words are taken out of context and being rated by their individual words and word count. Hence, I can say that a negative sentiment score doesn't mean that an anthem is truly negative, but it must be that they contain more generally negative words when taken out from their context.
+
+# Conclusion
+
+In conclusion, the outcome of this analyze doesn't really dictate anything. It is good to find out what is the most popular phrases, words, positive and negative words being used in different national anthems around the world. However, since this analysis was only conducted in English, and the fact that the anthems from other countries were translated to English made this analysis way less meaningful. This is because the meaning or symbols from the original version of the national anthems might have been lost after being translated to English. But it is a good thing to be able to view trends where for example it is pretty common to have "land" as one of the common words, as well as knowing that anthems generally use less negative words than positive words.

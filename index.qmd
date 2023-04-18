@@ -86,10 +86,7 @@ anthems_freq <- anthems_freq %>%
 
 ```{r}
 anthems_freq %>% 
-  ggplot() +
-  aes(x = n,
-      y = reorder(word, n),
-      fill = n) +
+  ggplot(aes(x = n, y = reorder(word, n), fill = n)) +
   geom_col(show.legend = FALSE) +
   facet_wrap(~Continent, scales = "free") +
   labs(title = 'Top 5 Most Popular Words in National Anthems per Continent',
